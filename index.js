@@ -581,15 +581,18 @@ function sanitizeHtml(html, options, _recursing) {
           const contents = result.slice(frame.tagPosition);
 
           if (replaceTagsAll) {
-            const replaced = replaceTagsAll(frame, contents);
+            let replaced = replaceTagsAll(frame, contents);
             if (replaced !== false) {
+              replaced = escapeHtml(replaced);
               result = result.slice(0, frame.tagPosition) + replaced;
+              frame.text = replaced;
             }
           }
 
           if (has(replaceTagsMap, name)) {
-            const replaced = replaceTagsMap[name](frame, contents);
+            let replaced = replaceTagsMap[name](frame, contents);
             if (replaced !== false) {
+              replaced = escapeHtml(replaced);
               result = result.slice(0, frame.tagPosition) + replaced;
               frame.text = replaced;
             }
