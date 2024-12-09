@@ -207,6 +207,16 @@ function sanitizeHtml(html, options, _recursing) {
     }
   });
 
+  const replaceTagsMap = {};
+  let replaceTagsAll;
+  each(options.replaceTags, function(transform, tag) {
+    if (tag === '*') {
+      replaceTagsAll = transform;
+    } else {
+      replaceTagsMap[tag] = transform;
+    }
+  });
+
   let depth;
   let stack;
   let skipMap;
@@ -566,13 +576,36 @@ function sanitizeHtml(html, options, _recursing) {
         return;
       }
 
+      function onTagEnd() {
+        if (replaceTagsAll || has(replaceTagsMap, name)) {
+          const contents = result.slice(frame.tagPosition);
+
+          if (replaceTagsAll) {
+            const replaced = replaceTagsAll(frame, contents);
+            if (replaced !== false) {
+              result = result.slice(0, frame.tagPosition) + replaced;
+            }
+          }
+
+          if (has(replaceTagsMap, name)) {
+            const replaced = replaceTagsMap[name](frame, contents);
+            if (replaced !== false) {
+              result = result.slice(0, frame.tagPosition) + replaced;
+              frame.text = replaced;
+            }
+          }
+        }
+
+        frame.updateParentNodeText();
+      }
+
       skipText = options.enforceHtmlBoundary ? name === 'html' : false;
       depth--;
       const skip = skipMap[depth];
       if (skip) {
         delete skipMap[depth];
         if (options.disallowedTagsMode === 'discard' || options.disallowedTagsMode === 'completelyDiscard') {
-          frame.updateParentNodeText();
+          onTagEnd();
           return;
         }
         tempResult = result;
@@ -590,7 +623,6 @@ function sanitizeHtml(html, options, _recursing) {
       }
 
       frame.updateParentNodeMediaChildren();
-      frame.updateParentNodeText();
 
       if (
         // Already output />
@@ -602,6 +634,7 @@ function sanitizeHtml(html, options, _recursing) {
           result = tempResult;
           tempResult = '';
         }
+        onTagEnd();
         return;
       }
 
@@ -611,6 +644,8 @@ function sanitizeHtml(html, options, _recursing) {
         tempResult = '';
       }
       addedText = false;
+
+      onTagEnd();
     }
   }, options.parser);
   parser.write(html);
